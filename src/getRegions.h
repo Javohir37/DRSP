@@ -3,9 +3,8 @@
 
 #include <mysql/mysql.h>
 
-// Function declarations
-char ***get_regions(MYSQL *conn, MYSQL_FIELD **fields, int *row_count, int *num_fields);
-void free_regions(char ***all_rows, int row_count, int num_fields);
+// Function to retrieve regions and return a JSON-formatted string
+char* get_regions(MYSQL *conn);
 
-#endif
+#endif // GET_REGIONS_H
 
