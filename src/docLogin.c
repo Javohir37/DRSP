@@ -10,9 +10,9 @@ char* docLogin(MYSQL *conn, int doctorID, const char *password) {
     MYSQL_RES *result;
     MYSQL_ROW row;
 
-    // Construct the SELECT query to verify DoctorID and password, and fetch the LastLogin field
+    // Construct the SELECT query to fetch all columns except password
     snprintf(query, sizeof(query), 
-             "SELECT DoctorID, LastLogin FROM doctors WHERE DoctorID = %d AND password = '%s'", 
+             "SELECT DoctorID, FullName, Spec, Role, HospitalID, PhoneNumber, Email, LastLogin FROM doctors WHERE DoctorID = %d AND password = '%s'", 
              doctorID, password);
 
     // Execute the query
@@ -31,12 +31,18 @@ char* docLogin(MYSQL *conn, int doctorID, const char *password) {
     // Check if any rows were returned
     if ((row = mysql_fetch_row(result)) == NULL) {
         mysql_free_result(result); // Free result before returning
-        return "{\"error\": \"Invalid DoctorID or password\"}";
+        return "False"; // Return False if no matching doctorID or password
     }
 
-    // Successful login: Get the DoctorID and LastLogin from the result
+    // Successful login: Get the required data from the result
     int fetchedDoctorID = atoi(row[0]);
-    const char *lastLogin = row[1];  // LastLogin is a string in the result set
+    const char *fullName = row[1];
+    const char *spec = row[2];
+    const char *role = row[3];
+    const char *hospitalID = row[4];
+    const char *phoneNumber = row[5];
+    const char *email = row[6];
+    const char *lastLogin = row[7]; // LastLogin is a string in the result set
 
     // Free the result
     mysql_free_result(result);
@@ -51,15 +57,18 @@ char* docLogin(MYSQL *conn, int doctorID, const char *password) {
         return "we did not get your output"; // Return default message on error
     }
 
-    // Allocate memory and generate JSON containing the DoctorID and LastLogin time
-    size_t buffer_size = 256; // Buffer for JSON output (larger to accommodate LastLogin)
+    // Allocate memory and generate JSON containing all the data except password
+    size_t buffer_size = 512; // Buffer for JSON output (larger to accommodate multiple fields)
     char *json = (char *)malloc(buffer_size);
     if (!json) {
         fprintf(stderr, "Memory allocation failed for JSON\n");
         return "we did not get your output"; // Return default message on error
     }
 
-    snprintf(json, buffer_size, "{\"DoctorID\": %d, \"LastLogin\": \"%s\"}", fetchedDoctorID, lastLogin);
+    // Construct the JSON output
+    snprintf(json, buffer_size, 
+             "{\"DoctorID\": %d, \"FullName\": \"%s\", \"Spec\": \"%s\", \"Role\": \"%s\", \"HospitalID\": \"%s\", \"PhoneNumber\": \"%s\", \"Email\": \"%s\", \"LastLogin\": \"%s\"}", 
+             fetchedDoctorID, fullName, spec, role, hospitalID, phoneNumber, email, lastLogin);
 
     return json; // Return the dynamically allocated JSON string
 }
