@@ -6,7 +6,6 @@
 
 // Function to register a patient and return the auto-incremented PatientID
 // If the patient with the same Name and PhoneNumber exists, return "exists" instead 
-// Done by Davlatbek Kobiljonov
 char* regPatient(MYSQL *conn, const char *name, const char *dob, const char *address, 
                  const char *phoneNumber, const char *email, const char *passportID, 
                  const char *citizenship, const char *password) {
