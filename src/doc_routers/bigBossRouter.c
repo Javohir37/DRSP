@@ -15,6 +15,7 @@
 #include "minRtrGetHospitals.h"
 #include "minRtrModifyApp.h"
 #include "minRtrGetSchedule.h"
+#include "minRtrSelectHospital.h"
 #include "localmysql.h"
 
 void bigBossRouter(const char *json_request, char *response_buffer, size_t buffer_size) {
