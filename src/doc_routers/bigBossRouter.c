@@ -35,7 +35,10 @@ MYSQL *conn = establish_connection();
         minRtrGetRegions(json_request, response_buffer, buffer_size);
     } else if (strcmp(function_name, "docReg") == 0) {
     minRtrDocReg(json_request, response_buffer, buffer_size);
-    }  else {
+    } else if (strcmp(function_name, "getCaseHistory") == 0) {
+    printf("DEBUG: Routing to minRtrGetCaseHistory\n");
+    minRtrGetCaseHistory(conn, json_request, response_buffer, buffer_size);
+} else {
         snprintf(response_buffer, buffer_size, "{\"error\": \"Unknown function: %s\"}", function_name);
     }
 
