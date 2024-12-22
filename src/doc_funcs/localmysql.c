@@ -31,18 +31,3 @@ MYSQL* establish_connection() {
     
     return con;
 }
-
-int main() {
-    MYSQL *con = establish_connection();
-    char *output = "we did not get your output";
-    
-    /* Here you can pass the connection to your function
-    Example:
-    output = your_function(con, arg2);
-    */
-    
-    printf("output: %s\n", output);
-    
-    mysql_close(con);
-    return 0;
-}
