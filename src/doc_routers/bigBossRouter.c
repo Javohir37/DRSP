@@ -9,10 +9,11 @@
 #include "minRtrDocReg.h"
 #include "minRtrGetDocs.h"
 #include "minRtrGetDocNotification.h"
+#include "minRtrSelectHospital.h"
 #include "localmysql.h"
 
 void bigBossRouter(const char *json_request, char *response_buffer, size_t buffer_size) {
-MYSQL *conn = establish_connection();
+    MYSQL *conn = establish_connection();
     // Parse the "function" field to decide the route
     struct json_object *parsed_json = json_tokener_parse(json_request);
     if (!parsed_json) {
@@ -37,19 +38,20 @@ MYSQL *conn = establish_connection();
     } else if (strcmp(function_name, "getRegions") == 0) {
         minRtrGetRegions(json_request, response_buffer, buffer_size);
     } else if (strcmp(function_name, "docReg") == 0) {
-    minRtrDocReg(json_request, response_buffer, buffer_size);
+        minRtrDocReg(json_request, response_buffer, buffer_size);
     } else if (strcmp(function_name, "getCaseHistory") == 0) {
-    printf("DEBUG: Routing to minRtrGetCaseHistory\n");
-    minRtrGetCaseHistory(conn, json_request, response_buffer, buffer_size);
+        printf("DEBUG: Routing to minRtrGetCaseHistory\n");
+        minRtrGetCaseHistory(conn, json_request, response_buffer, buffer_size);
     } else if (strcmp(function_name, "getDocNotification") == 0) {
-    minRtrGetDocNotification(json_request, response_buffer, buffer_size);
+        minRtrGetDocNotification(json_request, response_buffer, buffer_size);
     } else if (strcmp(function_name, "getDocs") == 0) {
-    printf("DEBUG: Routing to minRtrGetDocs\n");
-    minRtrGetDocs(conn, json_request, response_buffer, buffer_size);
+        printf("DEBUG: Routing to minRtrGetDocs\n");
+        minRtrGetDocs(conn, json_request, response_buffer, buffer_size);
+    } else if (strcmp(function_name, "selectHospital") == 0) {
+        minRtrSelectHospital(json_request, response_buffer, buffer_size);
     } else {
         snprintf(response_buffer, buffer_size, "{\"error\": \"Unknown function: %s\"}", function_name);
     }
 
     json_object_put(parsed_json);
 }
-
