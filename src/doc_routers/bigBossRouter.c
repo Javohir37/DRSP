@@ -10,6 +10,7 @@
 #include "minRtrGetDocNotification.h"
 #include "minRtrSelectHospital.h"
 #include "minRtrGetHourInfo.h"
+#include "minRtrGetWaitlist.h"
 #include "minRtrJudgeNotification.h"
 #include "minRtrGetHospitals.h"
 #include "minRtrModifyApp.h"
