@@ -52,6 +52,8 @@ void bigBossRouter(const char *json_request, char *response_buffer, size_t buffe
         minRtrGetDocNotification(json_request, response_buffer, buffer_size);
     } else if (strcmp(function_name, "selectHospital") == 0) {
         minRtrSelectHospital(json_request, response_buffer, buffer_size);
+    }else if (strcmp(function_name, "getWaitlist") == 0) {
+        minRtrGetWaitlist(json_request, response_buffer, buffer_size);
     }else if (strcmp(function_name, "getHourInfo") == 0) {
     printf("DEBUG: Routing to minRtrGetHourInfo\n");
     minRtrGetHourInfo(conn, json_request, response_buffer, buffer_size);
