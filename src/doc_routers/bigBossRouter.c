@@ -5,6 +5,7 @@
 #include "minRtrGetRegions.h"
 #include "minRtrGetDistricts.h"
 #include "minRtrDocLogin.h"
+#include "minRtrGetCaseHistory.h"
 #include "minRtrDocReg.h"
 #include "localmysql.h"
 
