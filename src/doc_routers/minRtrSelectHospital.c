@@ -50,8 +50,9 @@ void minRtrSelectHospital(const char *json_request, char *response_buffer, size_
 
     // Call selectHospital function
     char *result = selectHospital(conn, name, region, district, address);
-    snprintf(response_buffer, buffer_size, "%s", result);
 
+    snprintf(response_buffer, buffer_size, "%s", result);
+	
     // Clean up
     json_object_put(parsed_json);
     mysql_close(conn);
