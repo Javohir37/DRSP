@@ -7,6 +7,7 @@
 #include "minRtrDocLogin.h"
 #include "minRtrGetCaseHistory.h"
 #include "minRtrDocReg.h"
+#include "minRtrGetDocNotification.h"
 #include "localmysql.h"
 
 void bigBossRouter(const char *json_request, char *response_buffer, size_t buffer_size) {
@@ -39,7 +40,9 @@ MYSQL *conn = establish_connection();
     } else if (strcmp(function_name, "getCaseHistory") == 0) {
     printf("DEBUG: Routing to minRtrGetCaseHistory\n");
     minRtrGetCaseHistory(conn, json_request, response_buffer, buffer_size);
-} else {
+    } else if (strcmp(function_name, "getDocNotification") == 0) {
+    minRtrGetDocNotification(json_request, response_buffer, buffer_size);
+    } else {
         snprintf(response_buffer, buffer_size, "{\"error\": \"Unknown function: %s\"}", function_name);
     }
 
