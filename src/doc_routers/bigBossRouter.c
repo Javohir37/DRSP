@@ -10,6 +10,7 @@
 #include "minRtrGetDocs.h"
 #include "minRtrGetDocNotification.h"
 #include "minRtrSelectHospital.h"
+#include "minRtrGetHourInfo.h"
 #include "localmysql.h"
 
 void bigBossRouter(const char *json_request, char *response_buffer, size_t buffer_size) {
@@ -49,6 +50,9 @@ void bigBossRouter(const char *json_request, char *response_buffer, size_t buffe
         minRtrGetDocs(conn, json_request, response_buffer, buffer_size);
     } else if (strcmp(function_name, "selectHospital") == 0) {
         minRtrSelectHospital(json_request, response_buffer, buffer_size);
+    }else if (strcmp(function_name, "getHourInfo") == 0) {
+    printf("DEBUG: Routing to minRtrGetHourInfo\n");
+    minRtrGetHourInfo(conn, json_request, response_buffer, buffer_size);
     } else {
         snprintf(response_buffer, buffer_size, "{\"error\": \"Unknown function: %s\"}", function_name);
     }
