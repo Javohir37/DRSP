@@ -11,6 +11,7 @@
 #include "minRtrPatientLogin.h"
 #include "minRtrGetCaseHistory.h"
 #include "minRtrMyApp.h"
+#include "minRtrModifAppoint.h" 
 #include "localmysql.h"
 
 void bigBossRouter(const char *json_request, char *response_buffer, size_t buffer_size) {
@@ -57,7 +58,12 @@ else if (strcmp(function_name, "joinWaitlist") == 0) {
         free(response);
     } else if (strcmp(function_name, "myApp") == 0) {
     minRtrMyApp(json_request, response_buffer, buffer_size);
-}
+}else if (strcmp(function_name, "modifAppoint") == 0) {  // Add this route
+        char *response = handleModifAppointRequest(conn, json_request);
+        strncpy(response_buffer, response, buffer_size - 1);
+        response_buffer[buffer_size - 1] = '\0';
+        free(response);
+    }
   else {
         snprintf(response_buffer, buffer_size, "{\"error\": \"Unknown function: %s\"}", function_name);
     }
