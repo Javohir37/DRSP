@@ -6,6 +6,7 @@
 #include "minRtrGetNotif.h"
 #include "minRtrGetSpecs.h"
 #include "minRtrJoinWaitlist.h"
+#include "minRtrRegPatient.h"
 #include "localmysql.h"
 
 void bigBossRouter(const char *json_request, char *response_buffer, size_t buffer_size) {
@@ -37,6 +38,8 @@ else if (strcmp(function_name, "getSpecs") == 0) {
 }
 else if (strcmp(function_name, "joinWaitlist") == 0) {
     minRtrJoinWaitlist(json_request, response_buffer, buffer_size);
+}else if (strcmp(function_name, "regPatient") == 0) {
+    minRtrRegPatient(json_request, response_buffer, buffer_size);
 }
   else {
         snprintf(response_buffer, buffer_size, "{\"error\": \"Unknown function: %s\"}", function_name);
