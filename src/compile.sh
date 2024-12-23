@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Remove any existing compiled files
+rm -f drsp_server_patient_side *.o
+
 
 gcc -o drsp_server_patient_side \
 	main.c \

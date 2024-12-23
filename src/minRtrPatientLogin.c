@@ -1,5 +1,3 @@
-// minRtrPatientLogin.c
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,8 +9,7 @@
 char* handlePatientLoginRequest(MYSQL *conn, const char *requestJSON) {
     // Parse the JSON request
     struct json_object *parsed_json;
-    struct json_object *patientID_json;
-    struct json_object *password_json;
+    struct json_object *args_obj;
 
     parsed_json = json_tokener_parse(requestJSON);
 
@@ -20,14 +17,14 @@ char* handlePatientLoginRequest(MYSQL *conn, const char *requestJSON) {
         return strdup("{\"error\":\"Invalid JSON format\"}");
     }
 
-    if (!json_object_object_get_ex(parsed_json, "PatientID", &patientID_json) ||
-        !json_object_object_get_ex(parsed_json, "Password", &password_json)) {
+    if (!json_object_object_get_ex(parsed_json, "args", &args_obj) || json_object_array_length(args_obj) < 2) {
         json_object_put(parsed_json);
-        return strdup("{\"error\":\"Invalid input JSON\"}");
+        return strdup("{\"error\":\"Missing or invalid arguments. Required: PatientID and Password\"}");
     }
 
-    int patientID = json_object_get_int(patientID_json);
-    const char *password = json_object_get_string(password_json);
+    // Extract the positional arguments (PatientID and Password)
+    int patientID = json_object_get_int(json_object_array_get_idx(args_obj, 0));
+    const char *password = json_object_get_string(json_object_array_get_idx(args_obj, 1));
 
     // Call the patientLogin function
     char *response = patientLogin(conn, patientID, password);
@@ -37,16 +34,4 @@ char* handlePatientLoginRequest(MYSQL *conn, const char *requestJSON) {
 
     return response;
 }
-
-// minRtrPatientLogin.h
-
-#ifndef MIN_RTR_PATIENT_LOGIN_H
-#define MIN_RTR_PATIENT_LOGIN_H
-
-#include <mysql/mysql.h>
-
-// Function to handle patient login request and generate a response
-char* handlePatientLoginRequest(MYSQL *conn, const char *requestJSON);
-
-#endif // MIN_RTR_PATIENT_LOGIN_H
 
