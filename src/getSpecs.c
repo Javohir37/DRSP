@@ -2,12 +2,35 @@
 #include <stdlib.h>
 #include <mysql/mysql.h>
 #include <string.h>
+#include <json-c/json.h>
 #include "getSpecs.h"
+
+// Function to generate JSON string from MySQL query results
+char* generate_json(char ***all_rows, MYSQL_FIELD *fields, int num_rows, int num_fields) {
+    struct json_object *json_array = json_object_new_array();
+
+    for (int i = 0; i < num_rows; i++) {
+        struct json_object *json_object_row = json_object_new_object();
+        for (int j = 0; j < num_fields; j++) {
+            if (all_rows[i][j]) {
+                json_object_object_add(json_object_row, fields[j].name, json_object_new_string(all_rows[i][j]));
+            } else {
+                json_object_object_add(json_object_row, fields[j].name, NULL);
+            }
+        }
+        json_object_array_add(json_array, json_object_row);
+    }
+
+    char *json_string = strdup(json_object_to_json_string(json_array));
+    json_object_put(json_array);
+
+    return json_string;
+}
 
 // Fetch all distinct specializations from a hospital and return as JSON.
 char* getSpecs(MYSQL *conn, int hospitalID) {
     char query[1024];
-    snprintf(query, sizeof(query), 
+    snprintf(query, sizeof(query),
              "SELECT DISTINCT Spec FROM doctors WHERE HospitalID = %d", hospitalID);
 
     if (mysql_query(conn, query)) {
@@ -59,4 +82,3 @@ char* getSpecs(MYSQL *conn, int hospitalID) {
 
     return json;
 }
-
