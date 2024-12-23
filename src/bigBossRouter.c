@@ -12,6 +12,7 @@
 #include "minRtrGetCaseHistory.h"
 #include "minRtrMyApp.h"
 #include "minRtrModifAppoint.h" 
+#include "minRtrModifWaitlist.h"
 #include "localmysql.h"
 
 void bigBossRouter(const char *json_request, char *response_buffer, size_t buffer_size) {
@@ -63,7 +64,11 @@ else if (strcmp(function_name, "joinWaitlist") == 0) {
         strncpy(response_buffer, response, buffer_size - 1);
         response_buffer[buffer_size - 1] = '\0';
         free(response);
-    }
+    }else if (strcmp(function_name, "modifWaitlist") == 0) {  // New route
+    char *response = handleModifWaitlistRequest(conn, json_request);
+    strncpy(response_buffer, response, buffer_size - 1);
+    response_buffer[buffer_size - 1] = '\0';
+    free(response);}
   else {
         snprintf(response_buffer, buffer_size, "{\"error\": \"Unknown function: %s\"}", function_name);
     }
