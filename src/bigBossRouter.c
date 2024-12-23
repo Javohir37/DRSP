@@ -9,6 +9,7 @@
 #include "minRtrRegPatient.h"
 #include "minRtrSelectDoc.h"
 #include "minRtrPatientLogin.h"
+#include "minRtrGetCaseHistory.h"
 #include "localmysql.h"
 
 void bigBossRouter(const char *json_request, char *response_buffer, size_t buffer_size) {
