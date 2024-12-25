@@ -2,7 +2,7 @@
 #define BIGBOSSROUTER_H
 
 #include <mysql/mysql.h>
-#include "localmysql.h"
+#include "../headers/localmysql.h"
 /**
  * Big Boss Router: Routes the JSON request and writes the response into the provided buffer.
  *

@@ -3,13 +3,17 @@
 #include <mysql/mysql.h>
 #include <string.h>
 #include "../headers/getCaseHistory.h"
+#include <json-c/json.h>
 
-// Function to get the case history for a given PatientID and return the case history in a JSON-like string
+// Function to get the case history for a given PatientID and return the case history in a JSON string
 char* getCaseHistory(MYSQL *conn, int patientID) {
+    if (conn == NULL) {
+        return strdup("{\"error\":\"Database connection failed\"}");
+    }
+
     MYSQL_RES *res;
     MYSQL_ROW row;
     char query[1024];
-    static char result[4096];  // Static buffer to hold the result as a string
 
     // Construct the SELECT query to find case history based on PatientID and join with the doctors table
     snprintf(query, sizeof(query),
@@ -23,49 +27,60 @@ char* getCaseHistory(MYSQL *conn, int patientID) {
     // Execute the query
     if (mysql_query(conn, query)) {
         fprintf(stderr, "SELECT query failed: %s\n", mysql_error(conn));
-        return "we did not get your output"; // Return default error message
+        return strdup("{\"error\":\"Query execution failed\"}");
     }
 
     // Retrieve result
     res = mysql_store_result(conn);
     if (!res) {
         fprintf(stderr, "mysql_store_result() failed: %s\n", mysql_error(conn));
-        return "we did not get your output"; // Return default error message
+        return strdup("{\"error\":\"Failed to store result\"}");
     }
 
-    // If no row is found, return the default message
+    // If no rows are found, return an empty JSON array
     if (mysql_num_rows(res) == 0) {
         mysql_free_result(res);
-        return "No case history found for this patient.";
+        return strdup("[]");
     }
 
-    // Initialize result as an empty string
-    result[0] = '\0';
+    // Create a JSON array to hold the case history
+    struct json_object *json_array = json_object_new_array();
 
-    // Iterate over the result set and append each row to the result string
+    // Iterate over the result set and add each row to the JSON array
     while ((row = mysql_fetch_row(res)) != NULL) {
-        int caseID = atoi(row[0]);  // Get the CaseID
-        const char *visitDate = row[1];  // Get the VisitDate
-        const char *prescription = row[2];  // Get the Prescription
-        const char *tests = row[3];  // Get the Tests
-        const char *diagnosis = row[4];  // Get the Diagnosis
-        const char *notes = row[5];  // Get the Notes
-        const char *fullName = row[6];  // Get the FullName of the doctor
-        const char *spec = row[7];  // Get the Spec (specialization) of the doctor
-        const char *role = row[8];  // Get the Role of the doctor
+        struct json_object *case_obj = json_object_new_object();
+        struct json_object *doctor_obj = json_object_new_object();
 
-        // Append the case information in a JSON-like format
-        snprintf(result + strlen(result), sizeof(result) - strlen(result),
-                 "{\"CaseID\": %d, \"VisitDate\": \"%s\", \"Prescription\": \"%s\", \"Tests\": \"%s\", \"Diagnosis\": \"%s\", \"Notes\": \"%s\", "
-                 "\"Doctor\": {\"FullName\": \"%s\", \"Spec\": \"%s\", \"Role\": \"%s\"}}, ",
-                 caseID, visitDate, prescription, tests, diagnosis, notes, fullName, spec, role);
+        // Add case details to the JSON object
+        json_object_object_add(case_obj, "CaseID", json_object_new_int(atoi(row[0])));
+        json_object_object_add(case_obj, "VisitDate", json_object_new_string(row[1]));
+        json_object_object_add(case_obj, "Prescription", json_object_new_string(row[2]));
+        json_object_object_add(case_obj, "Tests", json_object_new_string(row[3]));
+        json_object_object_add(case_obj, "Diagnosis", json_object_new_string(row[4]));
+        json_object_object_add(case_obj, "Notes", json_object_new_string(row[5]));
+
+        // Add doctor details to the JSON object
+        json_object_object_add(doctor_obj, "FullName", json_object_new_string(row[6]));
+        json_object_object_add(doctor_obj, "Spec", json_object_new_string(row[7]));
+        json_object_object_add(doctor_obj, "Role", json_object_new_string(row[8]));
+
+        // Add the doctor object to the case object
+        json_object_object_add(case_obj, "Doctor", doctor_obj);
+
+        // Add the case object to the JSON array
+        json_object_array_add(json_array, case_obj);
     }
 
-    // Remove the last comma and space
-    result[strlen(result) - 2] = '\0';
+    // Convert the JSON array to a string
+    const char *json_result = json_object_to_json_string(json_array);
 
+    // Copy the result to a dynamically allocated string
+    char *result = strdup(json_result);
+
+    // Free JSON object and MySQL result
+    json_object_put(json_array);
     mysql_free_result(res);
 
-    return result; // Return the result as a string
+    return result; // Return the JSON string
 }
 

@@ -1,9 +1,12 @@
 #include <stdio.h>
 #include <string.h>
+#include "../routers/server.h"
 #include "../headers/bigBossRouter.h"
 #include "../headers/localmysql.h"
 
 int main() {
+printf("Starting the server...\n");
+    start_server();
     MYSQL *conn = establish_connection();
     if (!conn) {
         fprintf(stderr, "Database connection failed.\n");

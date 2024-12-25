@@ -5,7 +5,7 @@
 #include "../headers/getSchedule.h"
 
 // Function to retrieve the schedule for a specific date and doctor
-char* getSchedule(MYSQL *conn, const char *date, int doctorID) {
+char* getSchedule(MYSQL *conn, const char *date, const char *doctorID) {
     MYSQL_RES *res;
     MYSQL_ROW row;
     char query[1024];
@@ -13,23 +13,29 @@ char* getSchedule(MYSQL *conn, const char *date, int doctorID) {
     size_t json_size = 1024; // Initial size of the JSON buffer
     size_t pos = 0;
 
+    // Debug the input arguments
+    printf("DEBUG: getSchedule called with date = %s, doctorID = %s\n", date, doctorID);
+
     // Construct the SQL query to fetch appointments for the given date and doctorID
     snprintf(query, sizeof(query),
              "SELECT DISTINCT a.AppointmentID, a.DateTime, a.Status "
              "FROM appointments AS a "
-             "WHERE DATE(a.DateTime) = '%s' AND a.DoctorID = %d",
+             "WHERE DATE(a.DateTime) = '%s' AND a.DoctorID = '%s'",
              date, doctorID);
+
+    // Debug the constructed query
+    printf("DEBUG: Executing query: %s\n", query);
 
     // Execute the query
     if (mysql_query(conn, query)) {
         fprintf(stderr, "Query failed: %s\n", mysql_error(conn));
-        return NULL;
+        return strdup("{\"error\": \"Query execution failed\"}");
     }
 
     res = mysql_store_result(conn);
     if (!res) {
         fprintf(stderr, "mysql_store_result() failed: %s\n", mysql_error(conn));
-        return NULL;
+        return strdup("{\"error\": \"Failed to store query result\"}");
     }
 
     int row_count = mysql_num_rows(res);
@@ -42,7 +48,7 @@ char* getSchedule(MYSQL *conn, const char *date, int doctorID) {
     if (!json) {
         fprintf(stderr, "Memory allocation failed for JSON\n");
         mysql_free_result(res);
-        return NULL;
+        return strdup("{\"error\": \"Memory allocation failed\"}");
     }
 
     // Start JSON array
@@ -52,7 +58,7 @@ char* getSchedule(MYSQL *conn, const char *date, int doctorID) {
         // Extract data from the row
         const char *appointmentID = row[0] ? row[0] : "null";
         const char *dateTime = row[1] ? row[1] : "null";
-        const char *status = row[2];
+        const char *status = row[2] ? row[2] : "null";
 
         // Expand JSON buffer if needed
         if (pos + 256 >= json_size) {
@@ -62,7 +68,7 @@ char* getSchedule(MYSQL *conn, const char *date, int doctorID) {
                 fprintf(stderr, "Memory reallocation failed for JSON\n");
                 free(json);
                 mysql_free_result(res);
-                return NULL;
+                return strdup("{\"error\": \"Memory reallocation failed\"}");
             }
             json = temp;
         }
@@ -82,3 +88,4 @@ char* getSchedule(MYSQL *conn, const char *date, int doctorID) {
     mysql_free_result(res);
     return json;
 }
+

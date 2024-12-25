@@ -27,7 +27,7 @@ void minRtrSelectHospital(const char *json_request, char *response_buffer, size_
     if (!json_object_object_get_ex(parsed_json, "args", &args_obj) || 
         json_object_array_length(args_obj) < 4) {
         snprintf(response_buffer, buffer_size, 
-                "{\"error\": \"Missing or invalid arguments. Required: name, region, district, address\"}");
+                "{\"error\": \"Missing or invalid arguments. Required: name, region, district\"}");
         json_object_put(parsed_json);
         mysql_close(conn);
         return;
@@ -37,19 +37,19 @@ void minRtrSelectHospital(const char *json_request, char *response_buffer, size_
     const char *name = json_object_get_string(json_object_array_get_idx(args_obj, 0));
     const char *region = json_object_get_string(json_object_array_get_idx(args_obj, 1));
     const char *district = json_object_get_string(json_object_array_get_idx(args_obj, 2));
-    const char *address = json_object_get_string(json_object_array_get_idx(args_obj, 3));
+
 
     // Validate all parameters are present
-    if (!name || !region || !district || !address) {
+    if (!name || !region || !district ) {
         snprintf(response_buffer, buffer_size, 
-                "{\"error\": \"All parameters (name, region, district, address) must be non-null strings\"}");
+                "{\"error\": \"All parameters (name, region, district) must be non-null strings\"}");
         json_object_put(parsed_json);
         mysql_close(conn);
         return;
     }
 
     // Call selectHospital function
-    char *result = selectHospital(conn, name, region, district, address);
+    char *result = selectHospital(conn, name, region, district);
 
     snprintf(response_buffer, buffer_size, "%s", result);
 	

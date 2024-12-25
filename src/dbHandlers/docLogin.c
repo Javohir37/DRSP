@@ -10,13 +10,15 @@ char* docLogin(MYSQL *conn, int doctorID, const char *password) {
     MYSQL_RES *result;
     MYSQL_ROW row;
 
+	
+	
     // Construct the SELECT query to fetch all columns except password
     snprintf(query, sizeof(query), 
              "SELECT DoctorID, FullName, Spec, Role, HospitalID, PhoneNumber, Email, LastLogin FROM doctors WHERE DoctorID = %d AND password = '%s'", 
              doctorID, password);
-
+	
     // Execute the query
-    if (mysql_query(conn, query)) {
+    if (mysql_query(conn, query)==1) {
         fprintf(stderr, "SELECT query failed: %s\n", mysql_error(conn));
         return "we did not get your output"; // Return default message on error
     }

@@ -1,9 +1,10 @@
-#ifndef MINRTRGETCASEHISTORY_H
-#define MINRTRGETCASEHISTORY_H
+#ifndef MINRTR_GET_CASE_HISTORY_H
+#define MINRTR_GET_CASE_HISTORY_H
 
-#include <mysql/mysql.h>
+#include <stddef.h>
 
-void minRtrGetCaseHistory(MYSQL *conn, const char *json_request, char *response_buffer, size_t buffer_size);
+// Mini-router function for the `getCaseHistory`
+void minRtrGetCaseHistory(const char *json_request, char *response_buffer, size_t buffer_size);
 
-#endif // MINRTRGETCASEHISTORY_H
+#endif // MINRTR_GET_CASE_HISTORY_H
 

@@ -5,8 +5,8 @@
 
 #define DB_HOST "127.0.0.1"
 #define DB_USER "root"
-#define DB_PASS ""
-#define DB_NAME "DRSP"
+#define DB_PASS "IlIl20040422#"
+#define DB_NAME "test"
 #define DB_PORT 3306
 
 void finish_with_error(MYSQL *con)

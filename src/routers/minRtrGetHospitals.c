@@ -1,5 +1,3 @@
-// minRtrGetHospitals.c
-
 #include <stdio.h>
 #include <string.h>
 #include <json-c/json.h>
@@ -20,16 +18,22 @@ void minRtrGetHospitals(const char *json_request, char *response_buffer, size_t 
         return;
     }
 
-    struct json_object *region_obj, *district_obj;
-    if (!json_object_object_get_ex(parsed_json, "region", &region_obj) ||
-        !json_object_object_get_ex(parsed_json, "district", &district_obj)) {
-        snprintf(response_buffer, buffer_size, "{\"error\": \"Missing required fields\"}");
+    struct json_object *args_obj;
+    if (!json_object_object_get_ex(parsed_json, "args", &args_obj) || !json_object_is_type(args_obj, json_type_array)) {
+        snprintf(response_buffer, buffer_size, "{\"error\": \"Invalid or missing 'args' array\"}");
         json_object_put(parsed_json);
         return;
     }
 
-    const char *region = json_object_get_string(region_obj);
-    const char *district = json_object_get_string(district_obj);
+    // Extract positional arguments from 'args'
+    const char *region = json_object_get_string(json_object_array_get_idx(args_obj, 0));
+    const char *district = json_object_get_string(json_object_array_get_idx(args_obj, 1));
+
+    if (!region || !district) {
+        snprintf(response_buffer, buffer_size, "{\"error\": \"Invalid arguments\"}");
+        json_object_put(parsed_json);
+        return;
+    }
 
     // Call getHospitals function
     char *result_json = getHospitals(conn, region, district);
@@ -43,4 +47,3 @@ void minRtrGetHospitals(const char *json_request, char *response_buffer, size_t 
     json_object_put(parsed_json);
     mysql_close(conn);
 }
-
