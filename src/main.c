@@ -1,9 +1,12 @@
 #include <stdio.h>
 #include <string.h>
+#include "server.h"
 #include "bigBossRouter.h"
 #include "localmysql.h"
 
 int main() {
+printf("Starting the server...\n");
+    start_server();
     MYSQL *conn = establish_connection();
     if (!conn) {
         fprintf(stderr, "Database connection failed.\n");
@@ -35,3 +38,4 @@ int main() {
     mysql_close(conn);
     return 0;
 }
+
