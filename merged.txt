@@ -1,0 +1,1674 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <mysql/mysql.h>
+#include <string.h>
+#include "../headers/docLogin.h"
+
+// Function to validate doctor login using DoctorID and password
+char* docLogin(MYSQL *conn, int doctorID, const char *password) {
+    char query[1024];
+    MYSQL_RES *result;
+    MYSQL_ROW row;
+
+	
+	
+    // Construct the SELECT query to fetch all columns except password
+    snprintf(query, sizeof(query), 
+             "SELECT DoctorID, FullName, Spec, Role, HospitalID, PhoneNumber, Email, LastLogin FROM doctors WHERE DoctorID = %d AND password = '%s'", 
+             doctorID, password);
+	
+    // Execute the query
+    if (mysql_query(conn, query)==1) {
+        fprintf(stderr, "SELECT query failed: %s\n", mysql_error(conn));
+        return "we did not get your output"; // Return default message on error
+    }
+
+    // Store the query result
+    result = mysql_store_result(conn);
+    if (!result) {
+        fprintf(stderr, "Failed to store result: %s\n", mysql_error(conn));
+        return "we did not get your output"; // Return default message on error
+    }
+
+    // Check if any rows were returned
+    if ((row = mysql_fetch_row(result)) == NULL) {
+        mysql_free_result(result); // Free result before returning
+        return "False"; // Return False if no matching doctorID or password
+    }
+
+    // Successful login: Get the required data from the result
+    int fetchedDoctorID = atoi(row[0]);
+    const char *fullName = row[1];
+    const char *spec = row[2];
+    const char *role = row[3];
+    const char *hospitalID = row[4];
+    const char *phoneNumber = row[5];
+    const char *email = row[6];
+    const char *lastLogin = row[7]; // LastLogin is a string in the result set
+
+    // Free the result
+    mysql_free_result(result);
+
+    // Update the LastLogin field to the current timestamp
+    snprintf(query, sizeof(query),
+             "UPDATE doctors SET LastLogin = NOW() WHERE DoctorID = %d", fetchedDoctorID);
+
+    // Execute the update query
+    if (mysql_query(conn, query)) {
+        fprintf(stderr, "UPDATE query failed: %s\n", mysql_error(conn));
+        return "we did not get your output"; // Return default message on error
+    }
+
+    // Allocate memory and generate JSON containing all the data except password
+    size_t buffer_size = 512; // Buffer for JSON output (larger to accommodate multiple fields)
+    char *json = (char *)malloc(buffer_size);
+    if (!json) {
+        fprintf(stderr, "Memory allocation failed for JSON\n");
+        return "we did not get your output"; // Return default message on error
+    }
+
+    // Construct the JSON output
+    snprintf(json, buffer_size, 
+             "{\"DoctorID\": %d, \"FullName\": \"%s\", \"Spec\": \"%s\", \"Role\": \"%s\", \"HospitalID\": \"%s\", \"PhoneNumber\": \"%s\", \"Email\": \"%s\", \"LastLogin\": \"%s\"}", 
+             fetchedDoctorID, fullName, spec, role, hospitalID, phoneNumber, email, lastLogin);
+
+    return json; // Return the dynamically allocated JSON string
+}
+
+/*#include <stdio.h>
+#include <stdlib.h>
+#include <mysql/mysql.h>
+#include <string.h>
+#include "../headers/docReg.h"
+
+// Function to register a doctor and return a JSON string containing the DoctorID
+char* docReg(MYSQL *conn, const char *fullName, const char *spec, const char *role, int hospitalID, const char *phoneNumber, const char *email, const char *password) {
+    char query[1024];
+
+    // Construct the INSERT query with the new password field
+    snprintf(query, sizeof(query), 
+             "INSERT INTO doctors (FullName, Spec, Role, HospitalID, PhoneNumber, Email, password, LastLogin) "
+             "VALUES ('%s', '%s', '%s', %d, '%s', '%s', '%s', NOW())", 
+             fullName, spec, role, hospitalID, phoneNumber, email, password);
+
+    // Execute the query
+    if (mysql_query(conn, query)) {
+        fprintf(stderr, "INSERT INTO doctors failed: %s\n", mysql_error(conn));
+        return "we did not get your output"; // Return default message on error
+    }
+
+    // Get the last inserted DoctorID
+    int doctorID = (int)mysql_insert_id(conn);
+
+    // Allocate memory and generate JSON containing the DoctorID
+    size_t buffer_size = 128; // Buffer for JSON output
+    char *json = (char *)malloc(buffer_size);
+    if (!json) {
+        fprintf(stderr, "Memory allocation failed for JSON\n");
+        return "we did not get your output"; // Return default message on error
+    }
+
+    snprintf(json, buffer_size, "{\"DoctorID\": %d}", doctorID);
+
+    return json; // Return the dynamically allocated JSON string
+}*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <mysql/mysql.h>
+#include <string.h>
+#include "../headers/docReg.h"
+
+/**
+ * Implementation of the docReg function.
+ */
+char* docReg(MYSQL *conn,
+             const char *fullName,
+             const char *spec,
+             const char *role,
+             int hospitalID,
+             const char *phoneNumber,
+             const char *email,
+             const char *password)
+{
+    // Validate that conn is not NULL
+    if (!conn) {
+        fprintf(stderr, "docReg error: MySQL connection is NULL.\n");
+        return NULL;
+    }
+
+    // Create query buffer
+    char query[1024];
+    memset(query, 0, sizeof(query));
+
+    // Construct the INSERT query 
+    // NOTE: For production code, consider using prepared statements to avoid SQL injection.
+    snprintf(query, sizeof(query),
+             "INSERT INTO doctors (FullName, Spec, Role, HospitalID, PhoneNumber, Email, password, LastLogin) "
+             "VALUES ('%s', '%s', '%s', %d, '%s', '%s', '%s', NOW())",
+             (fullName    ? fullName    : ""),
+             (spec        ? spec        : ""),
+             (role        ? role        : ""),
+             hospitalID,
+             (phoneNumber ? phoneNumber : ""),
+             (email       ? email       : ""),
+             (password    ? password    : ""));
+
+    // Execute query
+    if (mysql_query(conn, query)) {
+        fprintf(stderr, "docReg error: INSERT INTO doctors failed: %s\n", mysql_error(conn));
+        return NULL;
+    }
+
+    // Retrieve last inserted DoctorID
+    int doctorID = (int)mysql_insert_id(conn);
+
+    // Allocate memory for the JSON response
+    char *json = (char*)malloc(128);
+    if (!json) {
+        fprintf(stderr, "docReg error: Memory allocation failed.\n");
+        return NULL;
+    }
+
+    // Format an output JSON with the DoctorID
+    snprintf(json, 128, "{\"DoctorID\": %d}", doctorID);
+
+    return json;
+}
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <mysql/mysql.h>
+#include <string.h>
+#include "../headers/getCaseHistory.h"
+
+// Function to get the case history for a given PatientID and return the case history in a JSON-like string
+char* getCaseHistory(MYSQL *conn, int patientID) {
+    MYSQL_RES *res;
+    MYSQL_ROW row;
+    char query[1024];
+    static char result[4096];  // Static buffer to hold the result as a string
+
+    // Construct the SELECT query to find case history based on PatientID and join with the doctors table
+    snprintf(query, sizeof(query),
+             "SELECT ch.CaseID, ch.VisitDate, ch.Prescription, ch.Tests, ch.Diagnosis, ch.Notes, "
+             "d.FullName, d.Spec, d.Role "
+             "FROM casehistory ch "
+             "INNER JOIN doctors d ON ch.DoctorID = d.DoctorID "
+             "WHERE ch.PatientID = %d", 
+             patientID);
+
+    // Execute the query
+    if (mysql_query(conn, query)) {
+        fprintf(stderr, "SELECT query failed: %s\n", mysql_error(conn));
+        return "we did not get your output"; // Return default error message
+    }
+
+    // Retrieve result
+    res = mysql_store_result(conn);
+    if (!res) {
+        fprintf(stderr, "mysql_store_result() failed: %s\n", mysql_error(conn));
+        return "we did not get your output"; // Return default error message
+    }
+
+    // If no row is found, return the default message
+    if (mysql_num_rows(res) == 0) {
+        mysql_free_result(res);
+        return "No case history found for this patient.";
+    }
+
+    // Initialize result as an empty string
+    result[0] = '\0';
+
+    // Iterate over the result set and append each row to the result string
+    while ((row = mysql_fetch_row(res)) != NULL) {
+        int caseID = atoi(row[0]);  // Get the CaseID
+        const char *visitDate = row[1];  // Get the VisitDate
+        const char *prescription = row[2];  // Get the Prescription
+        const char *tests = row[3];  // Get the Tests
+        const char *diagnosis = row[4];  // Get the Diagnosis
+        const char *notes = row[5];  // Get the Notes
+        const char *fullName = row[6];  // Get the FullName of the doctor
+        const char *spec = row[7];  // Get the Spec (specialization) of the doctor
+        const char *role = row[8];  // Get the Role of the doctor
+
+        // Append the case information in a JSON-like format
+        snprintf(result + strlen(result), sizeof(result) - strlen(result),
+                 "{\"CaseID\": %d, \"VisitDate\": \"%s\", \"Prescription\": \"%s\", \"Tests\": \"%s\", \"Diagnosis\": \"%s\", \"Notes\": \"%s\", "
+                 "\"Doctor\": {\"FullName\": \"%s\", \"Spec\": \"%s\", \"Role\": \"%s\"}}, ",
+                 caseID, visitDate, prescription, tests, diagnosis, notes, fullName, spec, role);
+    }
+
+    // Remove the last comma and space
+    result[strlen(result) - 2] = '\0';
+
+    mysql_free_result(res);
+
+    return result; // Return the result as a string
+}
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <mysql/mysql.h>
+#include <string.h>
+#include "../headers/getDistricts.h"
+
+// Function to retrieve districts for a specific region and return a JSON-formatted string
+char* getDistricts(MYSQL *conn, const char *regionName) {
+    MYSQL_RES *res;
+    MYSQL_ROW row;
+    char query[1024];
+
+    // Query to get distinct districts based on the specified region
+    snprintf(query, sizeof(query), "SELECT DISTINCT District FROM hospitals WHERE Region = '%s'", regionName);
+
+    // Execute the query
+    if (mysql_query(conn, query)) {
+        fprintf(stderr, "Query failed: %s\n", mysql_error(conn));
+        return NULL;
+    }
+
+    // Retrieve result
+    res = mysql_store_result(conn);
+    if (!res) {
+        fprintf(stderr, "mysql_store_result() failed: %s\n", mysql_error(conn));
+        return NULL;
+    }
+
+    int row_count = mysql_num_rows(res);
+
+    // If no rows found, return an empty JSON array
+    if (row_count == 0) {
+        mysql_free_result(res);
+        return strdup("[]"); // Return empty JSON array
+    }
+
+    // Allocate buffer for JSON output
+    size_t buffer_size = 1024; // Initial buffer size
+    char *output = (char *)malloc(buffer_size);
+    if (!output) {
+        fprintf(stderr, "Memory allocation failed for output\n");
+        mysql_free_result(res);
+        return NULL;
+    }
+
+    // Initialize output with an empty JSON array
+    snprintf(output, buffer_size, "[");
+
+    // Fetch rows and append to output
+    while ((row = mysql_fetch_row(res))) {
+        size_t used_len = strlen(output);
+        size_t district_len = row[0] ? strlen(row[0]) : 4; // "NULL" if no value
+
+        // Reallocate buffer if needed
+        if (used_len + district_len + 5 >= buffer_size) {
+            buffer_size *= 2;
+            output = realloc(output, buffer_size);
+            if (!output) {
+                fprintf(stderr, "Memory reallocation failed\n");
+                mysql_free_result(res);
+                return NULL;
+            }
+        }
+
+        // Append district to JSON array
+        if (used_len > 1) {
+            strncat(output, ",", buffer_size - strlen(output) - 1);
+        }
+        if (row[0]) {
+            strncat(output, "\"", buffer_size - strlen(output) - 1);
+            strncat(output, row[0], buffer_size - strlen(output) - 1);
+            strncat(output, "\"", buffer_size - strlen(output) - 1);
+        } else {
+            strncat(output, "NULL", buffer_size - strlen(output) - 1);
+        }
+    }
+
+    // Close the JSON array
+    strncat(output, "]", buffer_size - strlen(output) - 1);
+
+    mysql_free_result(res);
+    return output;
+}
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <mysql/mysql.h>
+#include <string.h>
+#include "../headers/getDocNotification.h"
+
+// Function to retrieve notifications for a doctor
+char* getDocNotification(MYSQL *conn, int doctorID, const char *lastLogin) {
+    MYSQL_RES *res;
+    MYSQL_ROW row;
+    char query[1024];
+    char *json = NULL;
+    size_t json_size = 1024; // Initial size of the JSON buffer
+    size_t pos = 0;
+
+    // Construct the SQL query
+    snprintf(query, sizeof(query),
+             "SELECT a.AppointmentID, a.PatientID, a.DateTime, a.Status, p.Name "
+             "FROM appointments AS a "
+             "JOIN patients AS p ON a.PatientID = p.PatientID "
+             "WHERE a.DoctorID = %d "
+             "AND (a.Status = 'Waiting' OR (a.Status = 'Cancelled' AND a.ModifiedDateTime > '%s'))",
+             doctorID, lastLogin);
+
+    // Execute the query
+    if (mysql_query(conn, query)) {
+        fprintf(stderr, "Query failed: %s\n", mysql_error(conn));
+        return NULL;
+    }
+
+    res = mysql_store_result(conn);
+    if (!res) {
+        fprintf(stderr, "mysql_store_result() failed: %s\n", mysql_error(conn));
+        return NULL;
+    }
+
+    int row_count = mysql_num_rows(res);
+    if (row_count == 0) {
+        mysql_free_result(res);
+        return strdup("[]"); // Return empty JSON array
+    }
+
+    json = (char *)malloc(json_size);
+    if (!json) {
+        fprintf(stderr, "Memory allocation failed for JSON\n");
+        mysql_free_result(res);
+        return NULL;
+    }
+
+    // Start JSON array
+    pos += snprintf(json + pos, json_size - pos, "[");
+
+    while ((row = mysql_fetch_row(res))) {
+        // Extract data from the row
+        int appointmentID = atoi(row[0]);
+        int patientID = atoi(row[1]);
+        const char *dateTime = row[2];
+        const char *status = row[3];
+        const char *fullName = row[4];
+
+        // Expand JSON buffer if needed
+        if (pos + 256 >= json_size) {
+            json_size *= 2;
+            char *temp = realloc(json, json_size);
+            if (!temp) {
+                fprintf(stderr, "Memory reallocation failed for JSON\n");
+                free(json);
+                mysql_free_result(res);
+                return NULL;
+            }
+            json = temp;
+        }
+
+        // Append JSON object for this row
+        pos += snprintf(json + pos, json_size - pos,
+                        "{\"AppointmentID\": %d, \"PatientID\": %d, \"DateTime\": \"%s\", \"Status\": \"%s\", \"FullName\": \"%s\"},",
+                        appointmentID, patientID, dateTime, status, fullName);
+    }
+
+    // Remove trailing comma and close JSON array
+    if (pos > 1 && json[pos - 1] == ',') {
+        pos--;
+    }
+    pos += snprintf(json + pos, json_size - pos, "]");
+
+    mysql_free_result(res);
+    return json;
+}
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h> // Add this for strdup
+#include <mysql/mysql.h>
+#include <json-c/json.h>
+
+char* getDocs(MYSQL *conn, int hospitalID, const char *spec) {
+    if (conn == NULL) {
+        return strdup("{\"error\":\"Database connection failed\"}");
+    }
+
+    // Prepare the SQL query
+    char query[512];
+    snprintf(query, sizeof(query),
+             "SELECT FullName FROM doctors WHERE HospitalID = %d AND Spec = '%s'",
+             hospitalID, spec);
+
+    if (mysql_query(conn, query)) {
+        return strdup("{\"error\":\"Database query failed\"}");
+    }
+
+    MYSQL_RES *result = mysql_store_result(conn);
+    if (result == NULL) {
+        return strdup("{\"error\":\"Failed to retrieve query results\"}");
+    }
+
+    MYSQL_ROW row;
+    struct json_object *response = json_object_new_array();
+
+    // Fetch each row and add the doctor's full name to the JSON array
+    while ((row = mysql_fetch_row(result))) {
+        json_object_array_add(response, json_object_new_string(row[0]));
+    }
+
+    mysql_free_result(result);
+
+    // Return the JSON array as a string
+    return strdup(json_object_to_json_string(response));
+}
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <mysql/mysql.h>
+#include <string.h>
+#include "../headers/getHospitals.h"
+
+// Function to retrieve hospital details based on Region and District
+char* getHospitals(MYSQL *conn, const char *region, const char *district) {
+    char query[1024];
+    MYSQL_RES *result;
+    MYSQL_ROW row;
+
+    // Construct the SELECT query to fetch hospital details based on Region and District
+    snprintf(query, sizeof(query),
+             "SELECT HospitalID, Name, Region, District, Address FROM hospitals WHERE Region = '%s' AND District = '%s'",
+             region, district);
+
+    // Execute the query
+    if (mysql_query(conn, query)) {
+        fprintf(stderr, "SELECT query failed: %s\n", mysql_error(conn));
+        return "we did not get your output"; // Return default message on error
+    }
+
+    // Store the query result
+    result = mysql_store_result(conn);
+    if (!result) {
+        fprintf(stderr, "Failed to store result: %s\n", mysql_error(conn));
+        return "we did not get your output"; // Return default message on error
+    }
+
+    // Check if any rows were returned
+    if ((row = mysql_fetch_row(result)) == NULL) {
+        mysql_free_result(result); // Free result before returning
+        return "No hospitals found"; // Return message if no matching hospitals
+    }
+
+    // Allocate memory for the JSON response
+    size_t buffer_size = 1024; // Buffer for JSON output
+    char *json = (char *)malloc(buffer_size);
+    if (!json) {
+        fprintf(stderr, "Memory allocation failed for JSON\n");
+        return "we did not get your output"; // Return default message on error
+    }
+
+    // Start building the JSON response
+    snprintf(json, buffer_size, "[");
+
+    // Loop through the result set and construct JSON for each hospital
+    int first_row = 1;  // Flag to check if it's the first hospital
+    do {
+        if (!first_row) {
+            strncat(json, ",", buffer_size); // Add comma between records
+        }
+        first_row = 0;
+
+        // Get the hospital data
+        //const char *hospitalID = row[0];
+        const char *name = row[1];
+        //const char *region = row[2];
+        //const char *district = row[3];
+        //const char *address = row[4];
+
+        // Append the current hospital data to the JSON string
+        snprintf(json + strlen(json), buffer_size - strlen(json), 
+                 "{\"Name\": \"%s\"}",
+                 name);
+
+    } while ((row = mysql_fetch_row(result)) != NULL);
+
+    // Close the JSON array
+    snprintf(json + strlen(json), buffer_size - strlen(json), "]");
+
+    // Free the result
+    mysql_free_result(result);
+
+    return json; // Return the dynamically allocated JSON string
+}
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <mysql/mysql.h>
+#include <string.h>
+#include "../headers/getHourInfo.h"
+
+// Function to retrieve hourly info for a specific doctor and time
+char* getHourInfo(MYSQL *conn, int doctorID, const char *dateTime) {
+    MYSQL_RES *res;
+    MYSQL_ROW row;
+    char query[1024];
+    char *json = NULL;
+    size_t json_size = 1024; // Initial size of the JSON buffer
+    size_t pos = 0;
+
+    // Construct the SQL query
+    snprintf(query, sizeof(query),
+        "SELECT a.PatientID, d.FullName AS DoctorName, p.Name AS PatientName, h.Name AS HospitalName, a.Status "
+        "FROM appointments AS a "
+        "JOIN doctors AS d ON a.DoctorID = d.DoctorID "
+        "JOIN patients AS p ON a.PatientID = p.PatientID "
+        "JOIN hospitals AS h ON d.HospitalID = h.HospitalID "
+        "WHERE a.DoctorID = %d AND a.DateTime = '%s'",
+        doctorID, dateTime);
+
+    // Execute the query
+    if (mysql_query(conn, query)) {
+        fprintf(stderr, "Query failed: %s\n", mysql_error(conn));
+        return NULL;
+    }
+
+    res = mysql_store_result(conn);
+    if (!res) {
+        fprintf(stderr, "mysql_store_result() failed: %s\n", mysql_error(conn));
+        return NULL;
+    }
+
+    int row_count = mysql_num_rows(res);
+    if (row_count == 0) {
+        mysql_free_result(res);
+        return strdup("[]"); // Return empty JSON array
+    }
+
+    json = (char *)malloc(json_size);
+    if (!json) {
+        fprintf(stderr, "Memory allocation failed for JSON\n");
+        mysql_free_result(res);
+        return NULL;
+    }
+
+    // Start JSON array
+    pos += snprintf(json + pos, json_size - pos, "[");
+
+    while ((row = mysql_fetch_row(res))) {
+        const char *patientID = row[0];
+        const char *doctorName = row[1];
+        const char *patientName = row[2];
+        const char *hospitalName = row[3];
+        const char *status = row[4];
+
+        // Expand JSON buffer if needed
+        if (pos + 256 >= json_size) {
+            json_size *= 2;
+            char *temp = realloc(json, json_size);
+            if (!temp) {
+                fprintf(stderr, "Memory reallocation failed for JSON\n");
+                free(json);
+                mysql_free_result(res);
+                return NULL;
+            }
+            json = temp;
+        }
+
+        // Append JSON object for this row
+        pos += snprintf(json + pos, json_size - pos,
+                        "{\"PatientID\": %s, \"DoctorName\": \"%s\", \"PatientName\": \"%s\", \"HospitalName\": \"%s\", \"Status\": \"%s\"},",
+                        patientID, doctorName, patientName, hospitalName, status);
+    }
+
+    // Remove trailing comma and close JSON array
+    if (pos > 1 && json[pos - 1] == ',') {
+        pos--;
+    }
+    pos += snprintf(json + pos, json_size - pos, "]");
+
+    mysql_free_result(res);
+    return json;
+}
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <mysql/mysql.h>
+#include <json-c/json.h>
+
+char* getNotif(MYSQL *conn, int patientID, const char *lastLoginDate) {
+    if (conn == NULL) {
+        return strdup("{\"error\":\"Database connection failed\"}");
+    }
+
+    struct json_object *response = json_object_new_array();
+
+    // Query for active appointments
+    char query[1024];
+    snprintf(query, sizeof(query), 
+             "SELECT a.AppointmentID, a.DateTime, a.Status, d.FullName, d.Spec, h.Name AS HospitalName "
+             "FROM appointments a "
+             "JOIN doctors d ON a.DoctorID = d.DoctorID "
+             "JOIN hospitals h ON d.HospitalID = h.HospitalID "
+             "WHERE a.PatientID = %d AND a.ModifiedDateTime > '%s';",
+             patientID, lastLoginDate);
+
+    if (mysql_query(conn, query)) {
+        json_object_put(response);
+        return strdup("{\"error\":\"Database query failed\"}");
+    }
+
+    MYSQL_RES *result = mysql_store_result(conn);
+    if (result == NULL) {
+        json_object_put(response);
+        return strdup("{\"error\":\"Failed to retrieve query results\"}");
+    }
+
+    MYSQL_ROW row;
+    while ((row = mysql_fetch_row(result))) {
+        struct json_object *appointment = json_object_new_object();
+        json_object_object_add(appointment, "AppointmentID", json_object_new_int(atoi(row[0])));
+        json_object_object_add(appointment, "DateTime", json_object_new_string(row[1]));
+        json_object_object_add(appointment, "Status", json_object_new_string(row[2]));
+        json_object_object_add(appointment, "DoctorName", json_object_new_string(row[3]));
+        json_object_object_add(appointment, "Specialization", json_object_new_string(row[4]));
+        json_object_object_add(appointment, "HospitalName", json_object_new_string(row[5]));
+        json_object_array_add(response, appointment);
+    }
+    mysql_free_result(result);
+
+    // Query for active waitlist items
+    snprintf(query, sizeof(query), 
+             "SELECT w.WaitlistID, w.Date, w.Status, d.FullName, d.Spec, h.Name AS HospitalName "
+             "FROM waitlist w "
+             "JOIN doctors d ON w.DoctorID = d.DoctorID "
+             "JOIN hospitals h ON d.HospitalID = h.HospitalID "
+             "WHERE w.PatientID = %d AND w.ModifiedDateTime > '%s';",
+             patientID, lastLoginDate);
+
+    if (mysql_query(conn, query)) {
+        json_object_put(response);
+        return strdup("{\"error\":\"Database query failed\"}");
+    }
+
+    result = mysql_store_result(conn);
+    if (result == NULL) {
+        json_object_put(response);
+        return strdup("{\"error\":\"Failed to retrieve query results\"}");
+    }
+
+    while ((row = mysql_fetch_row(result))) {
+        struct json_object *waitlist = json_object_new_object();
+        json_object_object_add(waitlist, "WaitlistID", json_object_new_int(atoi(row[0])));
+        json_object_object_add(waitlist, "Date", json_object_new_string(row[1]));
+        json_object_object_add(waitlist, "Status", json_object_new_string(row[2]));
+        json_object_object_add(waitlist, "DoctorName", json_object_new_string(row[3]));
+        json_object_object_add(waitlist, "Specialization", json_object_new_string(row[4]));
+        json_object_object_add(waitlist, "HospitalName", json_object_new_string(row[5]));
+        json_object_array_add(response, waitlist);
+    }
+    mysql_free_result(result);
+
+    char *response_str = strdup(json_object_to_json_string(response));
+    json_object_put(response);
+
+    return response_str;
+}
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <mysql/mysql.h>
+#include <string.h>
+#include "../headers/getRegions.h"
+
+// Function to retrieve regions and return a JSON-formatted string
+char* get_regions(MYSQL *conn) {
+    MYSQL_RES *res;
+    MYSQL_ROW row;
+    const char *query = "SELECT DISTINCT Region FROM hospitals";
+
+    // Execute the query
+    if (mysql_query(conn, query)) {
+        fprintf(stderr, "Query failed: %s\n", mysql_error(conn));
+        return NULL;
+    }
+
+    // Retrieve result
+    res = mysql_store_result(conn);
+    if (!res) {
+        fprintf(stderr, "mysql_store_result() failed: %s\n", mysql_error(conn));
+        return NULL;
+    }
+
+    int row_count = mysql_num_rows(res);
+
+    // If no rows found, return a default message
+    if (row_count == 0) {
+        mysql_free_result(res);
+        return strdup("[]"); // Return empty JSON array
+    }
+
+    // Allocate buffer for JSON output
+    size_t buffer_size = 1024; // Initial buffer size
+    char *output = (char *)malloc(buffer_size);
+    if (!output) {
+        fprintf(stderr, "Memory allocation failed for output\n");
+        mysql_free_result(res);
+        return NULL;
+    }
+
+    // Initialize output with an empty JSON array
+    snprintf(output, buffer_size, "[");
+
+    // Fetch rows and append to output
+    while ((row = mysql_fetch_row(res))) {
+        size_t used_len = strlen(output);
+        size_t region_len = row[0] ? strlen(row[0]) : 4; // "NULL" if no value
+
+        // Reallocate buffer if needed
+        if (used_len + region_len + 5 >= buffer_size) {
+            buffer_size *= 2;
+            output = realloc(output, buffer_size);
+            if (!output) {
+                fprintf(stderr, "Memory reallocation failed\n");
+                mysql_free_result(res);
+                return NULL;
+            }
+        }
+
+        // Append region to JSON array
+        if (used_len > 1) {
+            strncat(output, ",", buffer_size - strlen(output) - 1);
+        }
+        if (row[0]) {
+            strncat(output, "\"", buffer_size - strlen(output) - 1);
+            strncat(output, row[0], buffer_size - strlen(output) - 1);
+            strncat(output, "\"", buffer_size - strlen(output) - 1);
+        } else {
+            strncat(output, "NULL", buffer_size - strlen(output) - 1);
+        }
+    }
+
+    // Close the JSON array
+    strncat(output, "]", buffer_size - strlen(output) - 1);
+
+    mysql_free_result(res);
+    return output;
+}
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <mysql/mysql.h>
+#include <string.h>
+#include "../headers/getSchedule.h"
+
+// Function to retrieve the schedule for a specific date and doctor
+char* getSchedule(MYSQL *conn, const char *date, const char* doctorID) {
+    MYSQL_RES *res;
+    MYSQL_ROW row;
+    char query[1024];
+    char *json = NULL;
+    size_t json_size = 1024; // Initial size of the JSON buffer
+    size_t pos = 0;
+
+    // Debug the input arguments
+    printf("DEBUG: getSchedule called with date = %s, doctorID = %d\n", date, doctorID);
+
+    // Construct the SQL query to fetch appointments for the given date and doctorID
+    snprintf(query, sizeof(query),
+             "SELECT DISTINCT a.AppointmentID, a.DateTime, a.Status "
+             "FROM appointments AS a "
+             "WHERE DATE(a.DateTime) = '%s' AND a.DoctorID = %d",
+             date, doctorID);
+
+    // Debug the constructed query
+    printf("DEBUG: Executing query: %s\n", query);
+
+    // Execute the query
+    if (mysql_query(conn, query)) {
+        fprintf(stderr, "Query failed: %s\n", mysql_error(conn));
+        return strdup("{\"error\": \"Query execution failed\"}");
+    }
+
+    res = mysql_store_result(conn);
+    if (!res) {
+        fprintf(stderr, "mysql_store_result() failed: %s\n", mysql_error(conn));
+        return strdup("{\"error\": \"Failed to store query result\"}");
+    }
+
+    int row_count = mysql_num_rows(res);
+    if (row_count == 0) {
+        mysql_free_result(res);
+        return strdup("[]"); // Return empty JSON array
+    }
+
+    json = (char *)malloc(json_size);
+    if (!json) {
+        fprintf(stderr, "Memory allocation failed for JSON\n");
+        mysql_free_result(res);
+        return strdup("{\"error\": \"Memory allocation failed\"}");
+    }
+
+    // Start JSON array
+    pos += snprintf(json + pos, json_size - pos, "[");
+
+    while ((row = mysql_fetch_row(res))) {
+        // Extract data from the row
+        const char *appointmentID = row[0] ? row[0] : "null";
+        const char *dateTime = row[1] ? row[1] : "null";
+        const char *status = row[2] ? row[2] : "null";
+
+        // Expand JSON buffer if needed
+        if (pos + 256 >= json_size) {
+            json_size *= 2;
+            char *temp = realloc(json, json_size);
+            if (!temp) {
+                fprintf(stderr, "Memory reallocation failed for JSON\n");
+                free(json);
+                mysql_free_result(res);
+                return strdup("{\"error\": \"Memory reallocation failed\"}");
+            }
+            json = temp;
+        }
+
+        // Append JSON object for this row
+        pos += snprintf(json + pos, json_size - pos,
+                        "{\"AppointmentID\": %s, \"DateTime\": \"%s\", \"Status\": \"%s\"},",
+                        appointmentID, dateTime, status);
+    }
+
+    // Remove trailing comma and close JSON array
+    if (pos > 1 && json[pos - 1] == ',') {
+        pos--;
+    }
+    pos += snprintf(json + pos, json_size - pos, "]");
+
+    mysql_free_result(res);
+    return json;
+}
+#include <stdio.h>
+#include <stdlib.h>
+#include <mysql/mysql.h>
+#include <string.h>
+#include <json-c/json.h>
+#include "../headers/getSpecs.h"
+
+// Function to generate JSON string from MySQL query results
+char* generate_json1(char ***all_rows, MYSQL_FIELD *fields, int num_rows, int num_fields) {
+    struct json_object *json_array = json_object_new_array();
+
+    for (int i = 0; i < num_rows; i++) {
+        struct json_object *json_object_row = json_object_new_object();
+        for (int j = 0; j < num_fields; j++) {
+            if (all_rows[i][j]) {
+                json_object_object_add(json_object_row, fields[j].name, json_object_new_string(all_rows[i][j]));
+            } else {
+                json_object_object_add(json_object_row, fields[j].name, NULL);
+            }
+        }
+        json_object_array_add(json_array, json_object_row);
+    }
+
+    char *json_string = strdup(json_object_to_json_string(json_array));
+    json_object_put(json_array);
+
+    return json_string;
+}
+
+// Fetch all distinct specializations from a hospital and return as JSON.
+char* getSpecs(MYSQL *conn, int hospitalID) {
+    char query[1024];
+    snprintf(query, sizeof(query),
+             "SELECT DISTINCT Spec FROM doctors WHERE HospitalID = %d", hospitalID);
+
+    if (mysql_query(conn, query)) {
+        fprintf(stderr, "SELECT failed: %s\n", mysql_error(conn));
+        return NULL;
+    }
+
+    MYSQL_RES *result = mysql_store_result(conn);
+    if (result == NULL) {
+        fprintf(stderr, "mysql_store_result() failed: %s\n", mysql_error(conn));
+        return NULL;
+    }
+
+    int num_fields = mysql_num_fields(result);
+    int num_rows = mysql_num_rows(result);
+    MYSQL_FIELD *fields = mysql_fetch_fields(result);
+
+    // Allocate memory for storing all rows
+    char ***all_rows = malloc(num_rows * sizeof(char **));
+    for (int i = 0; i < num_rows; i++) {
+        all_rows[i] = malloc(num_fields * sizeof(char *));
+    }
+
+    // Fetch all rows
+    int row_index = 0;
+    MYSQL_ROW row;
+    while ((row = mysql_fetch_row(result))) {
+        for (int i = 0; i < num_fields; i++) {
+            all_rows[row_index][i] = row[i] ? strdup(row[i]) : NULL;
+        }
+        row_index++;
+    }
+
+    // Generate JSON string
+    char *json = generate_json1(all_rows, fields, num_rows, num_fields);
+
+    // Free allocated memory
+    for (int i = 0; i < num_rows; i++) {
+        for (int j = 0; j < num_fields; j++) {
+            if (all_rows[i][j]) {
+                free(all_rows[i][j]);
+            }
+        }
+        free(all_rows[i]);
+    }
+    free(all_rows);
+
+    mysql_free_result(result);
+
+    return json;
+}
+#include <stdio.h>
+#include <stdlib.h>
+#include <mysql/mysql.h>
+#include <string.h>
+#include "../headers/getWaitlist.h"
+
+char* getWaitlist(MYSQL *conn, const char *date, int doctorID) {
+    MYSQL_RES *res;
+    MYSQL_ROW row;
+    char query[1024];
+    char *json = NULL;
+    size_t json_size = 1024; // Initial size of the JSON buffer
+    size_t pos = 0;
+
+    // Construct the SQL query to fetch waitlist entries with patient names
+    snprintf(query, sizeof(query),
+         "SELECT w.WaitlistID, p.Name, w.PatientID "
+         "FROM waitlist AS w "
+         "JOIN patients AS p ON w.PatientID = p.PatientID "
+         "WHERE w.Date = '%s' AND w.DoctorID = %d "
+         "ORDER BY w.WaitlistID",
+         date, doctorID);
+
+
+
+    // Execute the query
+    if (mysql_query(conn, query)) {
+        fprintf(stderr, "Query failed: %s\n", mysql_error(conn));
+        return NULL;
+    }
+
+    res = mysql_store_result(conn);
+    if (!res) {
+        fprintf(stderr, "mysql_store_result() failed: %s\n", mysql_error(conn));
+        return NULL;
+    }
+
+    int row_count = mysql_num_rows(res);
+    if (row_count == 0) {
+        mysql_free_result(res);
+        return strdup("[]"); // Return empty JSON array
+    }
+
+    json = (char *)malloc(json_size);
+    if (!json) {
+        fprintf(stderr, "Memory allocation failed for JSON\n");
+        mysql_free_result(res);
+        return NULL;
+    }
+
+    // Start JSON array
+    pos += snprintf(json + pos, json_size - pos, "[");
+
+    while ((row = mysql_fetch_row(res))) {
+        // Extract data from the row
+        const char *waitlistID = row[0] ? row[0] : "null";
+        const char *fullName = row[1] ? row[1] : "null";
+        const char *patientID = row[2] ? row[2] : "null";
+
+        // Expand JSON buffer if needed
+        if (pos + 256 >= json_size) {
+            json_size *= 2;
+            char *temp = realloc(json, json_size);
+            if (!temp) {
+                fprintf(stderr, "Memory reallocation failed for JSON\n");
+                free(json);
+                mysql_free_result(res);
+                return NULL;
+            }
+            json = temp;
+        }
+
+        // Append JSON object for this row
+        pos += snprintf(json + pos, json_size - pos,
+                       "{\"WaitlistID\": %s, \"FullName\": \"%s\", \"PatientID\": %s},",
+                       waitlistID, fullName, patientID);
+    }
+
+    // Remove trailing comma and close JSON array
+    if (pos > 1 && json[pos - 1] == ',') {
+        pos--;
+    }
+    pos += snprintf(json + pos, json_size - pos, "]");
+
+    mysql_free_result(res);
+    return json;
+}
+
+// joinWaitlist.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <mysql/mysql.h>
+#include <string.h>
+#include <time.h>
+#include "../headers/joinWaitlist.h"
+
+// Helper function to get the current datetime
+void get_current_datetime(char *datetime) {
+    time_t now = time(NULL);
+    struct tm *tm_info = localtime(&now);
+    strftime(datetime, 20, "%Y-%m-%d %H:%M:%S", tm_info);
+}
+
+// Function to add a patient to the waitlist
+int joinWaitlist(MYSQL *con, int PatientID, int DoctorID, const char *Date) {
+    char query[512];
+    char current_datetime[20];
+
+    // Get the current datetime for ModifiedDateTime
+    get_current_datetime(current_datetime);
+
+    // Construct the query to insert the new waitlist record
+    snprintf(query, sizeof(query), "INSERT INTO waitlist (PatientID, DoctorID, Date, Status, ModifiedDateTime) "
+                                   "VALUES (%d, %d, '%s', 'Confirmed', '%s')", 
+                                   PatientID, DoctorID, Date, current_datetime);
+
+    // Execute the query
+    if (mysql_query(con, query)) {
+        fprintf(stderr, "INSERT failed: %s\n", mysql_error(con));
+        return -1; // Error occurred
+    }
+
+    return 0; // Success
+}
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <mysql/mysql.h>
+
+// Append a JSON-safe string to the destination buffer.
+void append_json_string(char *dest, const char *str, size_t *pos) {
+    dest[*pos] = '"';
+    (*pos)++;
+    for (const char *p = str; *p != '\0'; p++) {
+        dest[*pos] = *p;
+        (*pos)++;
+    }
+    dest[*pos] = '"';
+    (*pos)++;
+}
+
+// Generate JSON string from the result set.
+char* generate_json(char ***all_rows, MYSQL_FIELD *fields, int row_count, int num_fields) {
+    size_t buffer_size = 1024 * 1024; // 1 MB buffer size
+    char *json = (char *)malloc(buffer_size);
+    size_t pos = 0;
+
+    if (json == NULL) {
+        fprintf(stderr, "Memory allocation failed for JSON buffer\n");
+        exit(1);
+    }
+
+    json[pos++] = '[';
+
+    for (int rr = 0; rr < row_count; rr++) {
+        if (rr > 0) {
+            json[pos++] = ',';
+        }
+        json[pos++] = '{';
+
+        for (int i = 0; i < num_fields; i++) {
+            append_json_string(json, fields[i].name, &pos);
+            json[pos++] = ':';
+
+            if (all_rows[rr][i] == NULL) {
+                const char *null_str = "null";
+                strcpy(&json[pos], null_str);
+                pos += strlen(null_str);
+            } else {
+                append_json_string(json, all_rows[rr][i], &pos);
+            }
+
+            if (i < num_fields - 1) {
+                json[pos++] = ',';
+            }
+        }
+
+        json[pos++] = '}';
+    }
+
+    json[pos++] = ']';
+    json[pos] = '\0';
+
+    return json;
+}
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <mysql/mysql.h>
+#include <string.h>
+#include "../headers/judgeNotification.h"
+
+// Function to update the booking status in the appropriate tableName (appointments or waitlist)
+char* judgeNotification(MYSQL *conn, int id, const char *status, const char *tableName) {
+    char query[1024];
+    static char result[512]; // Static buffer for the result message
+
+    // Validate the tableName name
+    if (strcmp(tableName, "appointments") != 0 && strcmp(tableName, "waitlist") != 0) {
+        return "Invalid tableName name. Use 'appointments' or 'waitlist'.";
+    }
+
+    // Construct the UPDATE query
+    snprintf(query, sizeof(query),
+             "UPDATE %s SET Status = '%s', ModifiedDateTime = NOW() WHERE %sID = %d",
+             tableName, status, (strcmp(tableName, "appointments") == 0 ? "Appointment" : "Waitlist"), id);
+
+    // Execute the query
+    if (mysql_query(conn, query)) {
+        fprintf(stderr, "UPDATE query failed: %s\n", mysql_error(conn));
+        return "Failed to update the booking status.";
+    }
+
+    // Check if any rows were affected
+    if (mysql_affected_rows(conn) == 0) {
+        return "No matching record found.";
+    }
+
+    // Prepare the success message
+    snprintf(result, sizeof(result), "Booking status updated successfully in %s tableName for ID %d.", tableName, id);
+
+    return result;
+}
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <mysql/mysql.h>
+#include <string.h>
+
+#define DB_HOST "127.0.0.1"
+#define DB_USER "root"
+#define DB_PASS ""
+#define DB_NAME "DRSP"
+#define DB_PORT 3306
+
+void finish_with_error(MYSQL *con)
+{
+    fprintf(stderr, "%s\n", mysql_error(con));
+    mysql_close(con);
+    exit(1);
+}
+
+MYSQL* establish_connection() {
+    MYSQL *con = mysql_init(NULL);
+    
+    if (con == NULL) {
+        fprintf(stderr, "mysql_init() failed\n");
+        exit(1);
+    }
+    
+    if (mysql_real_connect(con, DB_HOST, DB_USER, DB_PASS, 
+        DB_NAME, DB_PORT, NULL, 0) == NULL) {
+        finish_with_error(con);
+    }
+    
+    return con;
+}
+#include <stdio.h>
+#include <string.h>
+#include "../routers/server.h"
+#include "../headers/bigBossRouter.h"
+#include "../headers/localmysql.h"
+
+int main() {
+printf("Starting the server...\n");
+    start_server();
+    MYSQL *conn = establish_connection();
+    if (!conn) {
+        fprintf(stderr, "Database connection failed.\n");
+        return 1;
+    }
+
+    char json_request[4096];  // Buffer for the input JSON request
+    char response_buffer[8192];  // Buffer for the output response
+    size_t buffer_size = sizeof(response_buffer);
+
+    printf("Enter a single-line JSON request (or 'exit' to quit):\n");
+
+    while (fgets(json_request, sizeof(json_request), stdin)) {
+        json_request[strcspn(json_request, "\n")] = '\0';  // Remove trailing newline
+
+        if (strcmp(json_request, "exit") == 0) {
+            break;
+        }
+
+        // Debug: Print the raw input
+        printf("DEBUG: Raw input JSON: '%s'\n", json_request);
+
+        bigBossRouter(json_request, response_buffer, buffer_size);
+
+        // Print the response
+        printf("%s\n", response_buffer);
+    }
+
+    mysql_close(conn);
+    return 0;
+}
+
+// modifAppoint.c
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <mysql/mysql.h>
+#include "../headers/modifAppoint.h"
+
+char* modifAppoint(MYSQL *conn, int patientID, int appointmentID, const char *status) {
+    if (conn == NULL) {
+        return strdup("{\"error\":\"Database connection failed\"}");
+    }
+
+    char query[512];
+    snprintf(query, sizeof(query),
+             "UPDATE appointments SET Status = '%s', ModifiedDateTime = NOW() "
+             "WHERE AppointmentID = %d AND PatientID = %d",
+             status, appointmentID, patientID);
+
+    if (mysql_query(conn, query)) {
+        return strdup("{\"error\":\"Database update failed\"}");
+    }
+
+    if (mysql_affected_rows(conn) == 0) {
+        return strdup("{\"error\":\"No rows were updated. Verify PatientID and AppointmentID\"}");
+    }
+
+    return strdup("{\"success\":\"Appointment status updated successfully\"}");
+}
+
+// modifWaitlist.c
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <mysql/mysql.h>
+#include "../headers/modifWaitlist.h"
+
+char* modifWaitlist(MYSQL *conn, int patientID, int waitlistID, const char *status) {
+    if (conn == NULL) {
+        return strdup("{\"error\":\"Database connection failed\"}");
+    }
+
+    char query[512];
+    snprintf(query, sizeof(query),
+             "UPDATE waitlist SET Status = '%s', ModifiedDateTime = NOW() "
+             "WHERE WaitlistID = %d AND PatientID = %d",
+             status, waitlistID, patientID);
+
+    if (mysql_query(conn, query)) {
+        return strdup("{\"error\":\"Database update failed\"}");
+    }
+
+    if (mysql_affected_rows(conn) == 0) {
+        return strdup("{\"error\":\"No rows were updated. Verify PatientID and WaitlistID\"}");
+    }
+
+    return strdup("{\"success\":\"Waitlist status updated successfully\"}");
+}
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <mysql/mysql.h>
+#include <string.h>
+#include "../headers/modifyApp.h"
+
+// Function to modify the status of an appointment
+char* modifyApp(MYSQL *conn, int appointmentID, const char *status) {
+    char query[1024];
+    static char result[512]; // Static buffer for the result message
+
+    // Construct the UPDATE query
+    snprintf(query, sizeof(query),
+             "UPDATE appointments SET Status = '%s', ModifiedDateTime = NOW() WHERE AppointmentID = %d",
+             status, appointmentID);
+
+    // Execute the query
+    if (mysql_query(conn, query)) {
+        fprintf(stderr, "UPDATE query failed: %s\n", mysql_error(conn));
+        return "Failed to update the appointment status.";
+    }
+
+    // Check if any rows were affected
+    if (mysql_affected_rows(conn) == 0) {
+        return "No matching appointment found.";
+    }
+
+    // Prepare the success message
+    snprintf(result, sizeof(result), "Appointment status updated successfully for AppointmentID %d.", appointmentID);
+
+    return result;
+}
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <mysql/mysql.h>
+#include <json-c/json.h>
+
+char* myApp(MYSQL *conn, int patientID) {
+    if (conn == NULL) {
+        return strdup("{\"error\":\"Database connection failed\"}");
+    }
+
+    char query[1024];
+    MYSQL_RES *result;
+    MYSQL_ROW row;
+    struct json_object *response_array = json_object_new_array();
+
+    // Fetch appointments
+    snprintf(query, sizeof(query),
+        "SELECT a.AppointmentID, a.DoctorID, a.DateTime, a.Status, d.FullName, d.Spec, h.Name "
+        "FROM appointments a "
+        "JOIN doctors d ON a.DoctorID = d.DoctorID "
+        "JOIN hospitals h ON d.HospitalID = h.HospitalID "
+        "WHERE a.PatientID = %d AND a.DateTime > NOW()",
+        patientID);
+
+    if (mysql_query(conn, query)) {
+        return strdup("{\"error\":\"Database query failed for appointments\"}");
+    }
+
+    result = mysql_store_result(conn);
+    if (result == NULL) {
+        return strdup("{\"error\":\"Failed to retrieve appointments\"}");
+    }
+
+    while ((row = mysql_fetch_row(result))) {
+        struct json_object *appointment_obj = json_object_new_object();
+        json_object_object_add(appointment_obj, "AppointmentID", json_object_new_int(atoi(row[0])));
+        json_object_object_add(appointment_obj, "DoctorID", json_object_new_int(atoi(row[1])));
+        json_object_object_add(appointment_obj, "DateTime", json_object_new_string(row[2]));
+        json_object_object_add(appointment_obj, "Status", json_object_new_string(row[3]));
+        json_object_object_add(appointment_obj, "DoctorName", json_object_new_string(row[4]));
+        json_object_object_add(appointment_obj, "DoctorSpec", json_object_new_string(row[5]));
+        json_object_object_add(appointment_obj, "HospitalName", json_object_new_string(row[6]));
+        json_object_array_add(response_array, appointment_obj);
+    }
+    mysql_free_result(result);
+
+    // Fetch waitlist entries
+    snprintf(query, sizeof(query),
+        "SELECT w.WaitlistID, w.DoctorID, w.Date, w.Status, d.FullName, h.Name "
+        "FROM waitlist w "
+        "JOIN doctors d ON w.DoctorID = d.DoctorID "
+        "JOIN hospitals h ON d.HospitalID = h.HospitalID "
+        "WHERE w.PatientID = %d",
+        patientID);
+
+    if (mysql_query(conn, query)) {
+        return strdup("{\"error\":\"Database query failed for waitlist\"}");
+    }
+
+    result = mysql_store_result(conn);
+    if (result == NULL) {
+        return strdup("{\"error\":\"Failed to retrieve waitlist\"}");
+    }
+
+    while ((row = mysql_fetch_row(result))) {
+        struct json_object *waitlist_obj = json_object_new_object();
+        json_object_object_add(waitlist_obj, "WaitlistID", json_object_new_int(atoi(row[0])));
+        json_object_object_add(waitlist_obj, "DoctorID", json_object_new_int(atoi(row[1])));
+        json_object_object_add(waitlist_obj, "Date", json_object_new_string(row[2]));
+        json_object_object_add(waitlist_obj, "Status", json_object_new_string(row[3]));
+        json_object_object_add(waitlist_obj, "DoctorName", json_object_new_string(row[4]));
+        json_object_object_add(waitlist_obj, "HospitalName", json_object_new_string(row[5]));
+        json_object_array_add(response_array, waitlist_obj);
+    }
+    mysql_free_result(result);
+
+    // Convert the JSON array to a string and return
+    char *response = strdup(json_object_to_json_string(response_array));
+    json_object_put(response_array); // Free JSON object
+    return response;
+}
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <mysql/mysql.h>
+#include <json-c/json.h>
+
+char* patientLogin(MYSQL *conn, int patientID, const char *password) {
+    if (conn == NULL) {
+        return strdup("{\"error\":\"Database connection failed\"}");
+    }
+
+    // Prepare the SQL query
+    char query[512];
+    snprintf(query, sizeof(query),
+             "SELECT PatientID, Name, LastLoginDate FROM patients WHERE PatientID = %d AND Password = '%s'",
+             patientID, password);
+
+    if (mysql_query(conn, query)) {
+        return strdup("{\"error\":\"Database query failed\"}");
+    }
+
+    MYSQL_RES *result = mysql_store_result(conn);
+    if (result == NULL) {
+        return strdup("{\"error\":\"Failed to retrieve query results\"}");
+    }
+
+    MYSQL_ROW row;
+    struct json_object *response;
+
+    // Check if any row is returned
+    if ((row = mysql_fetch_row(result))) {
+        // Create JSON response for valid login
+        response = json_object_new_object();
+        json_object_object_add(response, "PatientID", json_object_new_int(atoi(row[0])));
+        json_object_object_add(response, "Name", json_object_new_string(row[1]));
+        if (row[2]) { // Check if LastLoginDate is not NULL
+            json_object_object_add(response, "LastLogin", json_object_new_string(row[2]));
+        } else {
+            json_object_object_add(response, "LastLogin", json_object_new_string("Never"));
+        }
+
+        // Update the LastLoginDate
+        snprintf(query, sizeof(query),
+                 "UPDATE patients SET LastLoginDate = NOW() WHERE PatientID = %d", patientID);
+        mysql_query(conn, query);
+
+        mysql_free_result(result);
+        return strdup(json_object_to_json_string(response));
+    }
+
+    // Return error for invalid credentials or non-existent patient
+    response = json_object_new_object();
+    json_object_object_add(response, "error", json_object_new_string("Invalid credentials"));
+    mysql_free_result(result);
+    return strdup(json_object_to_json_string(response));
+}
+#include <stdio.h>
+#include <stdlib.h>
+#include <mysql/mysql.h>
+#include <string.h>
+#include "../headers/regPatient.h"
+
+// Function to register a patient and return the auto-incremented PatientID
+// If the patient with the same Name and PhoneNumber exists, return "exists" instead 
+char* regPatient(MYSQL *conn, const char *name, const char *dob, const char *address, 
+                 const char *phoneNumber, const char *email, const char *passportID, 
+                 const char *citizenship, const char *password) {
+    char query[2048];
+    MYSQL_RES *res;
+    MYSQL_ROW row;
+
+    // Escape user inputs to prevent SQL injection
+    char escapedName[256], escapedPhoneNumber[256];
+    mysql_real_escape_string(conn, escapedName, name, strlen(name));
+    mysql_real_escape_string(conn, escapedPhoneNumber, phoneNumber, strlen(phoneNumber));
+
+    // Check if a patient with the same Name and PhoneNumber already exists
+    snprintf(query, sizeof(query), 
+             "SELECT 1 FROM patients WHERE Name = '%s' AND PhoneNumber = '%s'", 
+             escapedName, escapedPhoneNumber);
+
+    if (mysql_query(conn, query)) {
+        fprintf(stderr, "SELECT failed: %s\n", mysql_error(conn));
+        return "error"; // Return error message on query failure
+    }
+
+    res = mysql_store_result(conn);
+    if (!res) {
+        fprintf(stderr, "mysql_store_result() failed: %s\n", mysql_error(conn));
+        return "error"; // Return error message if the result is null
+    }
+
+    // Check if the row exists
+    if (mysql_num_rows(res) > 0) {
+        mysql_free_result(res);
+        return "exists"; // Return "exists" if a patient with the same Name and PhoneNumber exists
+    }
+    mysql_free_result(res); // Free the result from the SELECT query
+
+    // Construct the INSERT query if the patient doesn't exist
+    if (email && strlen(email) > 0) {
+        // Email is provided
+        snprintf(query, sizeof(query),
+                 "INSERT INTO patients (Name, DOB, Address, PhoneNumber, Email, PassportID, Citizenship, Password, LastLoginDate) "
+                 "VALUES ('%s', STR_TO_DATE('%s', '%%d/%%m/%%Y'), '%s', '%s', '%s', '%s', '%s', '%s', NOW())",
+                 escapedName, dob, address, escapedPhoneNumber, email, passportID, citizenship, password);
+    } else {
+        // Email is not provided
+        snprintf(query, sizeof(query),
+                 "INSERT INTO patients (Name, DOB, Address, PhoneNumber, Email, PassportID, Citizenship, Password, LastLoginDate) "
+                 "VALUES ('%s', STR_TO_DATE('%s', '%%d/%%m/%%Y'), '%s', '%s', NULL, '%s', '%s', '%s', NOW())",
+                 escapedName, dob, address, escapedPhoneNumber, passportID, citizenship, password);
+    }
+
+    // Execute the query
+    if (mysql_query(conn, query)) {
+        fprintf(stderr, "INSERT INTO patients failed: %s\n", mysql_error(conn));
+        return "error"; // Return error message on query failure
+    }
+
+    // Get the last inserted PatientID
+    int patientID = (int)mysql_insert_id(conn);
+    
+    // Allocate memory for the result and store the PatientID as a string
+    static char result[64]; // Static to avoid returning a pointer to local memory
+    snprintf(result, sizeof(result), "%d", patientID);
+    return result; // Return the auto-incremented PatientID as a string
+}
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <mysql/mysql.h>
+#include <json-c/json.h>
+
+char* selectDoc(MYSQL *conn, int hospitalID, const char *fullName) {
+    if (conn == NULL) {
+        return strdup("{\"error\":\"Database connection failed\"}");
+    }
+
+    // Prepare the SQL query
+    char query[512];
+    snprintf(query, sizeof(query),
+             "SELECT d.DoctorID, h.Name AS HospitalName, d.Role "
+             "FROM doctors d "
+             "INNER JOIN hospitals h ON d.HospitalID = h.HospitalID "
+             "WHERE d.HospitalID = %d AND d.FullName = '%s'",
+             hospitalID, fullName);
+
+    if (mysql_query(conn, query)) {
+        return strdup("{\"error\":\"Database query failed\"}");
+    }
+
+    MYSQL_RES *result = mysql_store_result(conn);
+    if (result == NULL) {
+        return strdup("{\"error\":\"Failed to retrieve query results\"}");
+    }
+
+    MYSQL_ROW row;
+    struct json_object *response;
+
+    // Check if any row is returned
+    if ((row = mysql_fetch_row(result))) {
+        // Create JSON response for valid doctor
+        response = json_object_new_object();
+        json_object_object_add(response, "DoctorID", json_object_new_int(atoi(row[0])));
+        json_object_object_add(response, "HospitalName", json_object_new_string(row[1]));
+        json_object_object_add(response, "Role", json_object_new_string(row[2]));
+
+        mysql_free_result(result);
+        return strdup(json_object_to_json_string(response));
+    }
+
+    // Return error for invalid doctor or hospital
+    response = json_object_new_object();
+    json_object_object_add(response, "error", json_object_new_string("Doctor not found"));
+    mysql_free_result(result);
+    return strdup(json_object_to_json_string(response));
+}
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <mysql/mysql.h>
+#include <string.h>
+#include "../headers/selectHospital.h"
+
+// Function to select a hospital by Name, Region, District, and Address, and return HospitalID and Address as a string
+char* selectHospital(MYSQL *conn, const char *name, const char *region, const char *district) {
+    MYSQL_RES *res;
+    MYSQL_ROW row;
+    char query[1024];
+    static char result[512];  // Static buffer for holding the result as a string
+
+    // Construct the SELECT query to find HospitalID and Address based on Name, Region, District, and Address
+    snprintf(query, sizeof(query), 
+             "SELECT HospitalID FROM hospitals WHERE Name = '%s' AND Region = '%s' AND District = '%s'", 
+             name, region, district);
+
+    // Execute the query
+    if (mysql_query(conn, query)) {
+        fprintf(stderr, "SELECT query failed: %s\n", mysql_error(conn));
+        return "query did not get executed"; // Return default error message
+    }
+
+    // Retrieve result
+    res = mysql_store_result(conn);
+    if (!res) {
+        fprintf(stderr, "mysql_store_result() failed: %s\n", mysql_error(conn));
+        return "were not able to retrieve"; // Return default error message
+    }
+
+    // If no row is found, return the default message
+    if (mysql_num_rows(res) == 0) {
+        mysql_free_result(res);
+        return "row not found";
+    }
+
+    // Get the first row (there should only be one result)
+    row = mysql_fetch_row(res);
+    int hospitalID = atoi(row[0]); // Convert HospitalID from string to int
+
+
+    // Prepare the result as a string
+    snprintf(result, sizeof(result), "{\"HospitalID\": %d}", hospitalID);
+
+    mysql_free_result(res);
+
+    return result; // Return the result as a string
+}
+
