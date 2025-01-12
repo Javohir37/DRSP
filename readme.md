@@ -24,7 +24,7 @@ This is a serverside of Doctor Management System, designed to manage patient app
 1. Clone the repository:
    ```bash
    git clone https://github.com/Javohir37/DRSP.git
-1. Run the server.c:
+1. Run compile.sh at dbHandlers:
    ```bash
-   gcc -o server server.c -pthread
-   ./server
+   chmod +x compile.sh
+   ./compile.sh
